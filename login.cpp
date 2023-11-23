@@ -1,13 +1,9 @@
 #include <iostream>
+#include <iomanip>
 #include <vector>
+#include "login.h"
+#include "db.h"
 using namespace std;
-
-enum tipe_user {driver, penumpang}
-struct User {
-  int id;
-  string nama;
-  tipe_user tipe;
-}
 
 /*
  * Fungsi login
@@ -15,19 +11,26 @@ struct User {
  *
  *
  * */
-vector<User> login(){
-  string username, password;
-  cout << "SELAMAT DATANG DI OJEK ONLINE" << endl;
+Database::User login(){
+  string user_id, password;
+  cout << right << setw(25) << "Welcome User" << endl;
+	cout << setfill('-') << right << setw(15) << "-" << "Sign In" << setw(15) << "-" << endl;
+	cout << endl;
+	cout << "Username \t:"; cin >> user_id;
+	cout << "Password \t:"; cin >> password;
+  Database db("localhost", "semester1", "A1_b2_C3", "ojek_online");
+
+  if (!db.connect()) throw "DB connection failed!";
 
   // ISI STATEMENT IF DENGAN KONDISI GAGAL LOGIN
-  if (!validateLogin(username, password))
+  if (!db.verifiedUser(user_id, password))
   {
+    throw std::invalid_argument("username or password wrong!");
 
-    return;
   }
+  Database::User user = db.getUserInfo(user_id);
   
-  vector<User>  user = getUser(username, password); 
-
+  cout << "Login Berhasil!" << endl;
 
   return user;
 }

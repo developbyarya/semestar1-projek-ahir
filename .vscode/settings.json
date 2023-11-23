@@ -1,0 +1,13 @@
+{
+  "C_Cpp.default.compilerPath": "/usr/bin/g++",
+  "files.associations": {
+    "**/*.html": "html",
+    "**/templates/**/*.html": "django-html",
+    "**/templates/**/*": "django-txt",
+    "**/requirements{/**,*}.{txt,in}": "pip-requirements",
+    "ostream": "cpp",
+    "iostream": "cpp",
+    "chrono": "cpp",
+    "stdexcept": "cpp"
+  }
+}
