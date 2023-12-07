@@ -36,8 +36,12 @@ void displayDriver(string id, string nama){
         break;
             
       case 2 :
-        cout << "Perjalanan Anda:" << endl;
+        system("clear");
+        cout << "Perjalanan Anda" << endl;
         db.displayDriverHist(id);
+        cin.ignore();
+        cout << "Enter untuk melanjutkan" << endl;
+        while(cin.get()!='\n');
         break;
       
       case 3 :

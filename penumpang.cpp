@@ -128,8 +128,8 @@ Database::Order buat_order(int g_saldo){
     } else if (metode == 2) {
       if (harga > g_saldo){
         cout << "Saldo Gopay Tidak Mencukupi!" << endl;
-        metode = 0;
-        break;
+        metode = 3;
+        continue;
       }
       order.metode = Database::METODE(1);
       break;

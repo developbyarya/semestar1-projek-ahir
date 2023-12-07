@@ -35,7 +35,7 @@ class Database {
       std::string penjemputan;
       std::string tujuan;
       METODE metode;
-      int jarak;
+      float jarak;
     };
     int createOrder(std::string user_id, Order order_data);
     void displayOrderHistory(std::string user_id);
@@ -54,6 +54,7 @@ class Database {
     void displayCariPenumpang(int driver_id);
 
     void displayDriverHist(std::string driver_id);
+
 
 
 

@@ -1,5 +1,7 @@
 #include <iostream>
 #include <iomanip>
+#include <thread>
+#include <chrono>
 #include <random>
 
 #define HOST "localhost"
@@ -31,10 +33,15 @@ void Database::disconnect(){
 
 bool Database::verifiedUser(std::string user_id, std::string password){
     if (!this->connect()) throw std::invalid_argument("Connection has't been established yet");
-   std::unique_ptr<sql::PreparedStatement> psmt(this->con->prepareStatement("SELECT user_id, password FROM users WHERE user_id=? AND password=?;"));
+    /*
+    * Query:
+        SELECT user_id,username,password FROM users WHERE (user_id=? OR username=?) AND password=?;
+    */
+   std::unique_ptr<sql::PreparedStatement> psmt(this->con->prepareStatement("SELECT user_id,username,password FROM users WHERE (user_id=? OR username=?) AND password=?;"));
    std::unique_ptr<sql::ResultSet> res(nullptr);
    psmt->setString(1, user_id);
-   psmt->setString(2, password);
+   psmt->setString(2, user_id);
+   psmt->setString(3, password);
    res.reset(psmt->executeQuery());
 
    if (!res->rowsCount()) return false;
@@ -45,6 +52,11 @@ bool Database::verifiedUser(std::string user_id, std::string password){
 
 int Database::getSaldo(std::string user_id){
     if (!this->connect()) throw std::invalid_argument("Connection has't been established yet");
+    /*
+    * Query:
+        SELECT sum(jumlah) FROM  transaksi RIGHT JOIN gopay ON transaksi.id_akun=gopay.id_akun where gopay.id_akun=? GROUP BY gopay.id_akun;
+
+    */
    std::unique_ptr<sql::PreparedStatement> psmt(this->con->prepareStatement("SELECT sum(jumlah) FROM  transaksi RIGHT JOIN gopay ON transaksi.id_akun=gopay.id_akun where gopay.id_akun=? GROUP BY gopay.id_akun;"));
    std::unique_ptr<sql::ResultSet> res(nullptr);
    psmt->setString(1, user_id);
@@ -63,9 +75,14 @@ int Database::getSaldo(std::string user_id){
 
 Database::User Database::getUserInfo(std::string user_id){
     if (!this->connect()) throw std::invalid_argument("Connection has't been established yet");
-   std::unique_ptr<sql::PreparedStatement> psmt(this->con->prepareStatement("SELECT nama, tipe FROM users WHERE user_id=?;"));
+    /*
+    Query:
+    SELECT nama, tipe FROM users WHERE user_id=?;
+    */
+   std::unique_ptr<sql::PreparedStatement> psmt(this->con->prepareStatement("SELECT nama, tipe, user_id FROM users WHERE user_id=? OR username=?;"));
    std::unique_ptr<sql::ResultSet> res(nullptr);
    psmt->setString(1, user_id);
+   psmt->setString(2, user_id);
    res.reset(psmt->executeQuery());
 
    if (res->rowsCount() <= 0){
@@ -74,7 +91,7 @@ Database::User Database::getUserInfo(std::string user_id){
    res->first();
 
    Database::User user;
-   user.user_id = user_id;
+   user.user_id = res->getString(3);
    user.nama = res->getString(1);
 
     std::string tipe = res->getString(2);
@@ -126,10 +143,10 @@ int Database::createOrder(std::string user_id, Database::Order order_data){
 
     psmt.reset(this->con->prepareStatement("INSERT INTO perjalanan (id_perjalanan,jarak,penjemputan,tujuan,harga,penumpang_id,metode) VALUES (?,?,?,?,?,?,?)"));
     psmt->setInt(1,id);
-    psmt->setInt(2,order_data.jarak);
+    psmt->setDouble(2,order_data.jarak);
     psmt->setString(3,order_data.penjemputan);
     psmt->setString(4,order_data.tujuan);
-    psmt->setInt(5,order_data.jarak*2000+10000);
+    psmt->setInt(5,order_data.jarak*2000+7000);
     psmt->setString(6, user_id);
     if (order_data.metode == gopay){
         psmt->setString(7, "gopay");
@@ -264,41 +281,50 @@ void Database::selesaikanPerjalanan(int id, bool pakaiGopay, std::string user_id
 
 void Database::displayCariPenumpang(int driver_id){
     if (!this->connect()) throw std::invalid_argument("Connection has't been established yet");
+
     std::unique_ptr<sql::PreparedStatement> psmt(this->con->prepareStatement("SELECT p.id_perjalanan, p.tujuan, p.penjemputan, p.harga, p.metode, u.nama   FROM perjalanan p JOIN users u ON p.penumpang_id=u.user_id WHERE driver_id IS NULL;"));
     std::unique_ptr<sql::ResultSet> res(nullptr);
-    res.reset(psmt->executeQuery());
-
-    if (res->rowsCount() <= 0) {
-        cout << "Tidak Ada Penumpang!" << endl;
-        return;
-    }
 
 
-    int ids[res->rowsCount()];
 
-    std::cout << std::setw(20) << setfill('-') << "" << endl; 
-    int index=0;
-    while (res->next()){
-        ids[index] = res->getInt(1);
-        index++;
-        std::cout << "Id Perjalanan: " << res->getInt(1) << endl;
-        std::cout << "Tujuan: " << res->getString(2) << endl;
-        std::cout << "Penjemputan: " << res->getString(3) << endl;
-        std::cout << "Harga: Rp. " << res->getInt(4) << endl;
-        std::cout << "Metode: " << res->getString(5) << endl;
-        std::cout << "Nama: " << res->getString(6) << endl;
-        std::cout << std::setw(20) << setfill('-') << "" << endl; 
-    }
     int jemput_id;
-    bool valid = false;
-    do { 
-        cout << "Pilih: "; cin >> jemput_id;
-        
-        // check apakah id valid
-        for (int i=0; i<res->rowsCount();i++){
-            if (ids[i]==jemput_id) valid=true;
+    while (true) {
+        system("clear");
+        res.reset(psmt->executeQuery());
+
+        if (res->rowsCount() <= 0) {
+            cout << "Tidak Ada Penumpang!" << endl;
+            continue;
         }
-    } while (!valid);
+
+
+        int ids[res->rowsCount()];
+
+        std::cout << std::setw(20) << setfill('-') << "" << endl; 
+        int index=0;
+        while (res->next()){
+            ids[index] = res->getInt(1);
+            index++;
+            std::cout << "Id Perjalanan: " << res->getInt(1) << endl;
+            std::cout << "Tujuan: " << res->getString(2) << endl;
+            std::cout << "Penjemputan: " << res->getString(3) << endl;
+            std::cout << "Harga: Rp. " << res->getInt(4) << endl;
+            std::cout << "Metode: " << res->getString(5) << endl;
+            std::cout << "Nama: " << res->getString(6) << endl;
+            std::cout << std::setw(20) << setfill('-') << "" << endl; 
+        }
+        bool valid = false;
+        std::cout << "Pilih (-1 untuk refresh): "; cin >> jemput_id;
+        if (jemput_id == -1) continue;
+        // check apakah id valid
+        for (int i=0; i<res->rowsCount();i++)
+            if (ids[i]==jemput_id) valid=true;
+
+        if (valid) break;
+
+        this_thread::sleep_for(chrono::milliseconds(1500));
+    }
+
 
     cout << "Jemput " << jemput_id << endl;
     this->setDriver(jemput_id, driver_id);
@@ -331,15 +357,25 @@ void Database::displayCariPenumpang(int driver_id){
 
 void Database::displayDriverHist(std::string driver_id){
     if (!this->connect()) throw std::invalid_argument("Connection has't been established yet");
-    std::unique_ptr<sql::PreparedStatement> psmt(this->con->prepareStatement("select p.tgl_order, u.nama, p.tujuan, p.jarak, p.harga from perjalanan p JOIN users u ON p.penumpang_id=u.user_id where driver_id=?;"));
+    std::unique_ptr<sql::PreparedStatement> psmt(this->con->prepareStatement("SELECT count(driver_id), sum(harga) FROM perjalanan WHERE tgl_order LIKE CONCAT(CURRENT_DATE, '%') AND driver_id=? GROUP BY driver_id;"));
     std::unique_ptr<sql::ResultSet> res(nullptr);
+    
     psmt->setString(1,driver_id);
     res.reset(psmt->executeQuery());
-
     if (res->rowsCount() <= 0) {
         throw std::invalid_argument("Driver id Not Found");
     }
+    res->next();
 
+    cout << "Total Perjalanan Hari ini: " << res->getString(1) << endl;
+    cout << "Total Pendapatan Hari ini: " << res->getString(2) << endl;
+    
+    psmt.reset(this->con->prepareStatement("select p.tgl_order, u.nama, p.tujuan, p.jarak, p.harga from perjalanan p JOIN users u ON p.penumpang_id=u.user_id where driver_id=?;"));
+    psmt->setString(1,driver_id);
+    res.reset(psmt->executeQuery());
+
+
+    cout << "Riwayat Perjalanan" << endl;
     std::cout << std::setw(20) << std::setfill('-') << "" << endl; 
     while(res->next()){
         cout  << "Tanggal: " << res->getString(1) << endl;
